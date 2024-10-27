@@ -1,4 +1,3 @@
-
 from quantum_routines import (generate_empty_initial_state,
                               generate_mixing_Ham, generate_Ham_from_graph)
 from qutip import sesolve, sigmaz, sigmap, qeye, tensor, Options
@@ -214,8 +213,9 @@ def return_evolution(G, times, pulses, evol='xy'):
 
     state = generate_empty_initial_state(N_nodes)
 
-    opts = Options()
-    opts.store_states = True
+    opts = {
+        "store_states": True,
+    }
 
     result = sesolve(H_m, state, [0, np.pi/4], options=opts)
     state = result.states[-1]
@@ -296,7 +296,7 @@ def return_energy_distribution(graphs_list, all_states, observable_func=None, re
                 )
         else:
             observable = observable_func(G)
-        e_values = observable.data.diagonal().real
+        e_values = observable.full().diagonal().real
         e_values_unique = np.unique(e_values)
         state = all_states[i]
 
@@ -304,8 +304,8 @@ def return_energy_distribution(graphs_list, all_states, observable_func=None, re
 
         for j, v in enumerate(e_values_unique):
             e_distrib[j] = np.sum(
-                (np.abs(state.data.toarray()) ** 2)[e_values == v]
-                )
+                (np.abs(state.full()) ** 2)[e_values == v]
+            )
 
         all_e_distrib.append(e_distrib)
         all_e_values_unique.append(e_values_unique)
@@ -403,7 +403,7 @@ def return_js_square_matrix(distributions, verbose=0):
             js_matrix[i, j] = js
             js_matrix[j, i] = js
     return js_matrix
- 
+
 def return_js_matrix(distributions1, distributions2, verbose=0):
     """
     Returns the Jensen-Shannon distance matrix between discrete
