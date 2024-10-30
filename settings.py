@@ -19,3 +19,6 @@ def init():
 
     global rot_init
     rot_init = np.pi/2
+
+    global qiskit
+    qiskit = True

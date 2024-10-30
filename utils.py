@@ -1,5 +1,3 @@
-from quantum_routines import (generate_empty_initial_state,
-                              generate_mixing_Ham, generate_Ham_from_graph)
 from qutip import sesolve, sigmaz, sigmap, qeye, tensor, Options
 import settings
 import numpy as np
@@ -9,6 +7,19 @@ from tqdm.auto import tqdm, trange
 from operator import itemgetter
 
 settings.init()
+
+if settings.qiskit:
+    from quantum_routines_qiskit import (
+        generate_empty_initial_state,
+        generate_mixing_Ham,
+        generate_Ham_from_graph,
+    )
+else:
+    from quantum_routines import (
+        generate_empty_initial_state,
+        generate_mixing_Ham,
+        generate_Ham_from_graph,
+    )
 
 
 def generate_signal_fourier(G, rot_init=settings.rot_init,
@@ -228,7 +239,7 @@ def return_evolution(G, times, pulses, evol='xy'):
             else:
                 hexp = (- times[i] * 1j * H_evol).expm()
                 state = hexp * state
-                
+
         if np.abs(theta) > 0:
             result = sesolve(H_m, state, [0, theta], options=opts)
             state = result.states[-1]
