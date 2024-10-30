@@ -1,1 +1,13 @@
-.
+numba
+numpy<2.1.0
+networkx
+grakel
+scikit-learn
+qutip
+matplotlib
+scipy
+tqdm
+bayesian-optimization
+scikit-optimize
+argparse
+qiskit
