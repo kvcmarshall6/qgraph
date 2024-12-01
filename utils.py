@@ -1,4 +1,4 @@
-from qutip import sesolve, sigmaz, sigmap, qeye, tensor, Options
+from qutip import sigmaz, sigmap, qeye, tensor, Options
 import settings
 import numpy as np
 import math
@@ -13,6 +13,7 @@ if settings.qiskit:
         generate_empty_initial_state,
         generate_mixing_Ham,
         generate_Ham_from_graph,
+        sesolve
     )
 else:
     from quantum_routines import (
@@ -20,6 +21,7 @@ else:
         generate_mixing_Ham,
         generate_Ham_from_graph,
     )
+    from qutip import sesolve
 
 
 def generate_signal_fourier(G, rot_init=settings.rot_init,
@@ -224,27 +226,26 @@ def return_evolution(G, times, pulses, evol='xy'):
 
     state = generate_empty_initial_state(N_nodes)
 
-    opts = {
-        "store_states": True,
-    }
+    if settings.qiskit: 
+        res = sesolve(H_evol, H_m, state, pulses, [0, np.pi / 4])
+    else:
+        opts = {
+            "store_states": True,
+        }
 
-    result = sesolve(H_m, state, [0, np.pi/4], options=opts)
-    state = result.states[-1]
+        res = sesolve(H_m, state, [0, np.pi / 4], options=opts)
+        res = res.states[-1]
 
-    for i, theta in enumerate(pulses):
-        if np.abs(times[i]) > 0:
-            if evol == 'xy':
-                result = sesolve(H_evol, state, [0, times[i]], options=opts)
-                state = result.states[-1]
-            else:
-                hexp = (- times[i] * 1j * H_evol).expm()
-                state = hexp * state
+        for i, theta in enumerate(pulses):
+            if np.abs(times[i]) > 0:
+                res = sesolve(H_evol, state, [0, times[i]], options=opts)
+                res = res.states[-1]
 
-        if np.abs(theta) > 0:
-            result = sesolve(H_m, state, [0, theta], options=opts)
-            state = result.states[-1]
+            if np.abs(theta) > 0:
+                res = sesolve(H_m, state, [0, theta], options=opts)
+                res = res.states[-1]
 
-    return state
+    return res
 
 def return_list_of_states(graphs_list,
     times, pulses, evol='xy', verbose=0):
@@ -273,7 +274,13 @@ def return_list_of_states(graphs_list,
     return all_states
 
 
-def return_energy_distribution(graphs_list, all_states, observable_func=None, return_energies=False, verbose=0):
+def return_energy_distribution(
+    graphs_list,
+    all_states,
+    observable_func=None,
+    return_energies=False,
+    verbose=0,
+):
     """
     Returns all the discrete probability distributions of a diagonal
     observable on a list of states each one associated with a graph. The
@@ -283,9 +290,10 @@ def return_energy_distribution(graphs_list, all_states, observable_func=None, re
     Arguments:
     ---------
     - graphs_list: iterator of graph networkx.Graph objects
-    - all_states: list of qutip.Qobj states associated with graphs_list
+    - all_states: list of states (Qutip Qobj or nested lists of arrays for Qiskit)
+                  associated with graphs_list
     - observable_func: function(networkx.Graph):
-                        return qtip.Qobj diagonal observable
+                        returns diagonal observable (qutip.Qobj or Qiskit observable)
     - return_energies: boolean
 
     Returns:
@@ -300,23 +308,39 @@ def return_energy_distribution(graphs_list, all_states, observable_func=None, re
     all_e_distrib = []
     all_e_values_unique = []
 
-    for i, G in enumerate(tqdm(graphs_list, disable=verbose==0)):
-        if observable_func == None: 
+    for i, G in enumerate(tqdm(graphs_list, disable=verbose == 0)):
+        if observable_func == None:
             observable = generate_Ham_from_graph(
                 G, type_h='ising', type_ising='z'
-                )
+            )
         else:
             observable = observable_func(G)
         e_values = observable.full().diagonal().real
         e_values_unique = np.unique(e_values)
         state = all_states[i]
 
+        if settings.qiskit:
+            # flatten nested states for Qiskit
+            state = state.data
+
         e_distrib = np.zeros(len(e_values_unique))
 
-        for j, v in enumerate(e_values_unique):
-            e_distrib[j] = np.sum(
-                (np.abs(state.full()) ** 2)[e_values == v]
+        if settings.qiskit:
+            # compute probabilities from the state vector
+            probs = (
+                np.abs(state) ** 2
             )
+            assert len(probs) == len(e_values)
+
+        for j, v in enumerate(e_values_unique):
+            if settings.qiskit:
+                mask = e_values == v
+                assert len(mask) == len(probs)
+                probabilities = probs[mask]
+            else:
+                probabilities = (np.abs(state.full()) ** 2)[e_values == v]
+            # sum probabilities
+            e_distrib[j] = np.sum(probabilities)
 
         all_e_distrib.append(e_distrib)
         all_e_values_unique.append(e_values_unique)

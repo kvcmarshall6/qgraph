@@ -1,5 +1,5 @@
-import qutip
 from qiskit import QuantumCircuit
+from qiskit.circuit.library import QAOAAnsatz
 from qiskit.quantum_info import SparsePauliOp, Statevector
 import numpy as np
 import settings
@@ -39,14 +39,14 @@ def generate_mixing_Ham(N):
     # create h_m from the terms and coefficients
     h_m = SparsePauliOp.from_list(list(zip(pauli_terms, coefficients)))
 
-    # TODO: temp code to maintain jupyter workflow
-    matrix_representation = h_m.to_matrix()
-    # reshape to match QuTiP dims
-    reshaped_matrix = matrix_representation.reshape(
-        (2**N, 2**N)
-    )
-    qutip_h_m = qutip.Qobj(reshaped_matrix, dims=[[2] * N, [2] * N])
-    return qutip_h_m
+    # # TODO: temp code to maintain jupyter workflow
+    # matrix_representation = h_m.to_matrix()
+    # # reshape to match QuTiP dims
+    # reshaped_matrix = matrix_representation.reshape(
+    #     (2**N, 2**N)
+    # )
+    # qutip_h_m = qutip.Qobj(reshaped_matrix, dims=[[2] * N, [2] * N])
+    return h_m
 
 
 def generate_Ham_from_graph(graph, type_h='xy', process_edge=None):
@@ -99,12 +99,12 @@ def generate_Ham_from_graph(graph, type_h='xy', process_edge=None):
 
     H = SparsePauliOp.from_list(list(zip(pauli_terms, coefficients)))
 
-    # TODO: temp code to maintain jupyter workflow
-    matrix_representation = H.to_matrix()
-    # reshape to match QuTiP dims
-    reshaped_matrix = matrix_representation.reshape((2**N, 2**N))
-    qutip_H = qutip.Qobj(reshaped_matrix, dims=[[2] * N, [2] * N])
-    return qutip_H
+    # # TODO: temp code to maintain jupyter workflow
+    # matrix_representation = H.to_matrix()
+    # # reshape to match QuTiP dims
+    # reshaped_matrix = matrix_representation.reshape((2**N, 2**N))
+    # qutip_H = qutip.Qobj(reshaped_matrix, dims=[[2] * N, [2] * N])
+    return H
 
 
 def reverse_statevector(statevector):
@@ -134,12 +134,53 @@ def generate_empty_initial_state(N):
     for qubit in range(N):
         qc.x(qubit)
 
-    # TODO: temp code to maintain jupyter workflow
-    statevector = Statevector(qc).data
-    # reverse the order the statevector qubit register is read
-    statevector = reverse_statevector(statevector)
-    qutip_state = qutip.Qobj(
-        np.array(statevector).reshape(-1, 1),
-        dims=[[2] * qc.num_qubits, [1] * qc.num_qubits],
+    # # TODO: temp code to maintain jupyter workflow
+    # statevector = Statevector(qc).data
+    # # reverse the order the statevector qubit register is read
+    # statevector = reverse_statevector(statevector)
+    # qutip_state = qutip.Qobj(
+    #     np.array(statevector).reshape(-1, 1),
+    #     dims=[[2] * qc.num_qubits, [1] * qc.num_qubits],
+    # )
+    return qc
+
+
+def sesolve(H_evol, H_m, psi0, pulses, times):
+    """
+    Perform time evolution of a state vector using Qiskit quantum circuits.
+
+    Arguments:
+    ----------
+    H_evol : Cost Hamiltonian: SparsePauliOp
+    H_m : Mixing Hamiltonian: SparsePauliOp
+    psi0 : Initial quantum state: QuantumCircuit
+    pulses : Angles for mixing Hamiltonian evolution: list of floats
+    times : Times for cost Hamiltonian evolution: list of float
+
+    Returns:
+    --------
+    evolved_states : Final evolved quantum state: Statevector
+    """
+
+    reps = len(pulses)
+    circuit = QAOAAnsatz(
+        cost_operator=H_evol,
+        reps=reps,
+        initial_state=psi0.copy(),
+        mixer_operator=H_m,
     )
-    return qutip_state
+
+    # flatten and bind parameters
+    param_values = []
+    for time, theta in zip(times, pulses):
+        # parameters for cost Hamiltonian
+        param_values.append(time)
+        # parameters for mixing Hamiltonian
+        param_values.append(theta)
+
+    # bind the parameters to the ansatz
+    bound_circuit = circuit.assign_parameters(param_values)
+
+    # get statevector for the circuit
+    evolved_states = Statevector(bound_circuit)
+    return evolved_states
