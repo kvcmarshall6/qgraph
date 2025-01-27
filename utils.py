@@ -348,6 +348,9 @@ def return_energy_distribution(
     e_values_unique = np.unique(np.concatenate(all_e_values_unique, axis=0))
 
     all_e_masses = []
+    # all_e_distrib is list of probability distributions for each graph - each is pd of observing unique eigenvalues of O for a given graph
+    # all_e_values_unique is list of arrays - each has unique eigenvalues of observable for a given graph
+    # builds all_e_masses 2D array - each row corresponds to discrete pd over the unique eigenvalues of all observables (different for each graph)
     for e_distrib, e_values in zip(all_e_distrib, all_e_values_unique):
         masses = np.zeros_like(e_values_unique)
         for d, e in zip(e_distrib, e_values):
