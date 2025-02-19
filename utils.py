@@ -310,12 +310,13 @@ def return_energy_distribution(
 
     for i, G in enumerate(tqdm(graphs_list, disable=verbose == 0)):
         if observable_func == None:
-            observable = generate_Ham_from_graph(
-                G, type_h='ising', type_ising='z'
-            )
+            observable = generate_Ham_from_graph(G, type_h="ising")
         else:
             observable = observable_func(G)
-        e_values = observable.full().diagonal().real
+        if settings.qiskit:
+            e_values = observable.to_matrix().diagonal().real
+        else:
+            e_values = observable.full().diagonal().real
         e_values_unique = np.unique(e_values)
         state = all_states[i]
 
